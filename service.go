@@ -83,7 +83,7 @@ func new[T Service](service T, logger *log.Logger, tracer trace.Tracer) (
 	s.Echo.Use(otelecho.Middleware(service.Name(), otelecho.WithSkipper(handlers.Skipper)))
 	s.Echo.Use(middleware.RequestID())
 
-	// route harnesser-specific handlers ↴
+	// route saddle-specific handlers ↴
 	h := handlers.New(&handlers.Config{
 		CompiledAt: compiledAt,
 		ExecutedAt: executedAt,

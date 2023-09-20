@@ -1,4 +1,4 @@
-// Package middleware contains harnesser-level related middleware which utilizes the Echo framework.
+// Package middleware contains saddle-level related middleware which utilizes the Echo framework.
 package middleware
 
 const (

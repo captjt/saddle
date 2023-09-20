@@ -71,12 +71,12 @@ func config[T Service](service T, environment string) *models.Config {
 	// - deserialize | validate saddle configuration(s) ↴
 	hc := &models.Config{}
 	if err := viper.Unmarshal(hc); err != nil {
-		logger.Fatal("harnesser config deserialization error",
+		logger.Fatal("saddle config deserialization error",
 			zap.Error(err),
 		)
 	}
 	if err := v.Struct(hc); err != nil {
-		logger.Fatal("harnesser config validation error",
+		logger.Fatal("saddle config validation error",
 			zap.Error(err),
 		)
 	}

@@ -1,0 +1,10 @@
+saddle:
+  # Use open-telemetry to log to standard out.
+  # stdout:
+  #   sample_rate: 100
+  # To disable telemetry middleware.
+  none:
+    disabled: true
+
+v1:
+  test: "configurations can be put here"

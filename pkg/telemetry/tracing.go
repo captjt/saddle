@@ -20,6 +20,7 @@ const (
 	Jaeger exporter = iota
 	CloudTrace
 	StdOut
+	None
 )
 
 func NewExporter(
@@ -44,8 +45,12 @@ func NewExporter(
 	// configurations if not using it.
 	// case CloudTrace:
 	// 	exp, err = cloudTrace.New(cloudTrace.WithProjectID(projectID))
+	case None:
+		fmt.Println("Tracing is disabled.")
+		return nil, nil
 	default:
-		return nil, fmt.Errorf("unknown exporter defined")
+		fmt.Println("Exporter was not defined, tracing is disabled.")
+		return nil, nil
 	}
 	if err != nil {
 		return nil, err
