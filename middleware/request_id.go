@@ -1,24 +1,26 @@
 package middleware
 
 import (
+	"github.com/gofiber/fiber/v2"
 	"github.com/google/uuid"
-	"github.com/labstack/echo/v4"
 )
 
-// requestIDHeader contains the http header in which to reference the request id.
-const requestIDHeader = "x-request-id"
+// requestIDHeader contains the HTTP header in which to reference the request ID.
+const requestIDHeader = "X-Request-ID"
 
-// RequestID handles any referenced request id attached to an incoming request; will construct and attached a new id to
-//   the incoming request if it does not already exist.
-func RequestID() echo.MiddlewareFunc {
-	return func(next echo.HandlerFunc) echo.HandlerFunc {
-		return func(c echo.Context) error {
-			if rid := c.Request().Header.Get(requestIDHeader); rid != "" {
-				c.Set(CTXRequestID, rid)
-				return next(c)
-			}
-			c.Set(CTXRequestID, uuid.New().String())
-			return next(c)
+// RequestID handles any referenced request ID attached to an incoming request; will construct and attach a new ID to
+// the incoming request if it does not already exist.
+func RequestID() fiber.Handler {
+	return func(c *fiber.Ctx) error {
+		requestID := c.Get(requestIDHeader) // Get the request ID from the header
+		if requestID == "" {
+			requestID = uuid.NewString()      // Generate a new UUID if the header is not present
+			c.Set(requestIDHeader, requestID) // Set the new UUID in the response header
 		}
+
+		// Store the request ID in the local context, if needed elsewhere
+		c.Locals("requestID", requestID)
+
+		return c.Next() // Continue with the next middleware or handler in the chain
 	}
 }

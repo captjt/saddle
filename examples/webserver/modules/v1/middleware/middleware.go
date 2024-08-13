@@ -1,20 +1,17 @@
 package middleware
 
 import (
-	"github.com/captjt/saddle/middleware"
-	"github.com/labstack/echo/v4"
-
 	"saddle/examples/webserver/modules/v1/models"
+
+	"github.com/gofiber/fiber/v2"
 )
 
-func APIData() echo.MiddlewareFunc {
-	return func(next echo.HandlerFunc) echo.HandlerFunc {
-		return func(c echo.Context) error {
-			switch c.Path() {
-			case "/v1/hello-world":
-				c.Set(middleware.CTXRequest, new(models.HelloWorldRequest))
-			}
-			return next(c)
+func APIData() fiber.Handler {
+	return func(c *fiber.Ctx) error {
+		switch c.Path() {
+		case "/v1/hello-world":
+			c.Locals("model", new(models.HelloWorldRequest))
 		}
+		return c.Next()
 	}
 }

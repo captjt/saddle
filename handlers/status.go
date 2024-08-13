@@ -5,7 +5,7 @@ import (
 	"runtime/debug"
 	"time"
 
-	"github.com/labstack/echo/v4"
+	"github.com/gofiber/fiber/v2"
 
 	"github.com/captjt/saddle/models"
 )
@@ -16,9 +16,9 @@ func init() {
 	info, _ = debug.ReadBuildInfo()
 }
 
-func (h *handlers) getStatus() echo.HandlerFunc {
-	return func(c echo.Context) error {
-		return c.JSON(http.StatusOK, models.StatusResponse{
+func (h *handlers) getStatus() fiber.Handler {
+	return func(c *fiber.Ctx) error {
+		return c.Status(http.StatusOK).JSON(models.StatusResponse{
 			Version:    h.config.Version,
 			CompiledAt: h.config.CompiledAt,
 			ExecutedAt: h.config.ExecutedAt.Format(time.RFC3339),

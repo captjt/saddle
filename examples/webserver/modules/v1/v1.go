@@ -2,8 +2,8 @@ package v1
 
 import (
 	"github.com/captjt/saddle/pkg/logger"
-	"github.com/labstack/echo/v4"
-	"go.opentelemetry.io/otel/trace"
+	"github.com/go-playground/validator/v10"
+	"github.com/gofiber/fiber/v2"
 
 	"saddle/examples/webserver/modules/v1/handlers"
 )
@@ -18,18 +18,18 @@ const basePath = "/v1"
 
 func New(
 	logger *logger.Logger,
-	exporter trace.Tracer,
+	validator *validator.Validate,
 	test string, // Purely to show passing configurations through to handlers.
 ) *v1 {
 	return &v1{
 		handlers: handlers.New(
 			logger,
-			exporter,
+			validator,
 			test,
 		),
 	}
 }
 
-func (v *v1) Add(e *echo.Echo) error {
+func (v *v1) Add(e *fiber.App) error {
 	return v.handlers.Route(e, basePath)
 }

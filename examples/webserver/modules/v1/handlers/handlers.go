@@ -5,40 +5,42 @@ import (
 
 	"github.com/captjt/saddle/middleware"
 	"github.com/captjt/saddle/pkg/logger"
-	"github.com/labstack/echo/v4"
-	"go.opentelemetry.io/otel/trace"
+	"github.com/go-playground/validator/v10"
+	"github.com/gofiber/fiber/v2"
 
 	v1mw "saddle/examples/webserver/modules/v1/middleware"
 )
 
 type (
 	Handlers struct {
-		tracer trace.Tracer
-		logger *logger.Logger
-		test   string // Purely to show passing configurations through to handlers.
+		logger    *logger.Logger
+		validator *validator.Validate
+		test      string // Purely to show passing configurations through to handlers.
 	}
 )
 
 func New(
 	logger *logger.Logger,
-	tracer trace.Tracer,
+	validator *validator.Validate,
 	test string,
 ) *Handlers {
 	return &Handlers{
-		tracer: tracer,
-		logger: logger,
-		test:   test,
+		validator: validator,
+		logger:    logger,
+		test:      test,
 	}
 }
 
-func (h *Handlers) Route(e *echo.Echo, basePath string) error {
+func (h *Handlers) Route(e *fiber.App, basePath string) error {
 	g := e.Group(basePath)
 
-	g.Add(http.MethodPost, "/hello-world", h.helloWorld(),
-		middleware.RequestID(),
-		middleware.RequestLog(h.logger),
-		v1mw.APIData(),
-		middleware.Validate(h.logger),
+	// Chain middleware for all routes.
+	g.Use(v1mw.APIData())
+	g.Use(middleware.Validate(h.validator))
+
+	// Define routes.
+	g.Add(http.MethodPost, "/hello-world",
+		h.helloWorld(),
 	)
 	return nil
 }

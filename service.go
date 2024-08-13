@@ -7,9 +7,7 @@ import (
 	"time"
 
 	"github.com/go-playground/validator/v10"
-	"github.com/labstack/echo/v4"
-	"go.opentelemetry.io/contrib/instrumentation/github.com/labstack/echo/otelecho"
-	"go.opentelemetry.io/otel/trace"
+	"github.com/gofiber/fiber/v2"
 
 	"github.com/captjt/saddle/handlers"
 	"github.com/captjt/saddle/middleware"
@@ -20,28 +18,29 @@ type (
 	// Service contains functions references attached to a service.
 	Service interface {
 		// Attach attaches the service to execute | expose.
-		Attach(*echo.Echo, *log.Logger, trace.Tracer) (func(), error)
+		Attach(*fiber.App, *log.Logger, *validator.Validate) (func(), error)
 		// Config returns the configuration of a service.
 		Config() any
 		// Description returns the description of a service.
 		Description() string
 		// Name returns the name of a service.
 		Name() string
+		// Validator returns the validator of a service.
+		Validator() *validator.Validate
 	}
 
 	// Project contains elements, functions and references attached to a project.
 	Project[T Service] struct {
-		// Echo contains the referenced Echo framework instance attached to the project.
-		Echo *echo.Echo
+		// App contains the referenced Fiber framework app instance attached to the project.
+		App       *fiber.App
+		validator *validator.Validate
 
-		logger   *log.Logger
 		service  T
 		shutdown func(func())
-		tracer   trace.Tracer
 	}
 
-	validate struct {
-		validator *validator.Validate
+	Validate struct {
+		Validator *validator.Validate
 	}
 )
 
@@ -62,26 +61,19 @@ func init() {
 	executedAt = time.Now().UTC()
 }
 
-// Validate processes validation on a struct | model.
-func (v *validate) Validate(i any) error {
-	return v.validator.Struct(i)
-}
-
 // new instantiates a new project instance.
-func new[T Service](service T, logger *log.Logger, tracer trace.Tracer) (
+func new[T Service](service T, logger *log.Logger, validator *validator.Validate) (
 	*Project[T], error,
 ) {
+
 	s := &Project[T]{
-		Echo:    echo.New(),
-		service: service,
+		App:       fiber.New(),
+		service:   service,
+		validator: validator,
 	}
 
-	s.Echo.HideBanner = true
-	s.Echo.HidePort = true
-	s.Echo.Validator = &validate{validator.New()}
-
-	s.Echo.Use(otelecho.Middleware(service.Name(), otelecho.WithSkipper(handlers.Skipper)))
-	s.Echo.Use(middleware.RequestID())
+	s.App.Use(middleware.RequestID())
+	s.App.Use(middleware.RequestLog(logger))
 
 	// route saddle-specific handlers ↴
 	h := handlers.New(&handlers.Config{
@@ -92,9 +84,9 @@ func new[T Service](service T, logger *log.Logger, tracer trace.Tracer) (
 		Version:    version,
 	},
 		logger,
-		tracer,
+		s.validator,
 	)
-	h.Route(s.Echo, "")
+	h.Route(s.App, "")
 
 	// construct safe shutdown monitor ↴
 	s.shutdown = func(shutdown func()) {
@@ -112,7 +104,7 @@ func new[T Service](service T, logger *log.Logger, tracer trace.Tracer) (
 	}
 
 	// attach service with service-specific safe shutdown ↴
-	sd, err := s.service.Attach(s.Echo, logger, tracer)
+	sd, err := s.service.Attach(s.App, logger, s.validator)
 	s.shutdown(sd)
 	return s, err
 }

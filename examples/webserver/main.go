@@ -6,10 +6,10 @@ import (
 
 	"github.com/captjt/saddle"
 	"github.com/captjt/saddle/pkg/logger"
-	"github.com/labstack/echo/v4"
+	"github.com/go-playground/validator/v10"
+	"github.com/gofiber/fiber/v2"
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
-	"go.opentelemetry.io/otel/trace"
 	"go.uber.org/zap"
 
 	"saddle/examples/webserver/models"
@@ -24,10 +24,10 @@ type (
 	Service struct {
 		config      *models.Config
 		description string
-		echo        *echo.Echo
+		app         *fiber.App
 		logger      *logger.Logger
 		name        string
-		tracer      trace.Tracer
+		validator   *validator.Validate
 		extended
 	}
 
@@ -51,7 +51,8 @@ var (
 func init() {
 
 	command = saddle.New(version)
-	webserver := saddle.Command(saddle.Instantiate(New(description, name)))
+	service := New(description, name, validator.New())
+	webserver := saddle.Command(saddle.Instantiate(service))
 	command.AddCommand(webserver)
 
 	// - define command-line parameters ↴
@@ -73,20 +74,21 @@ func main() {
 	command.Execute()
 }
 
-func New(description, name string) *Service {
+func New(description, name string, validator *validator.Validate) *Service {
 	return &Service{
 		config:      &models.Config{},
 		description: description,
 		name:        name,
+		validator:   validator,
 	}
 }
 
-func (s *Service) Attach(e *echo.Echo, logger *logger.Logger, tracer trace.Tracer) (
+func (s *Service) Attach(e *fiber.App, logger *logger.Logger, validator *validator.Validate) (
 	func(), error,
 ) {
-	s.echo = e
-	s.tracer = tracer
+	s.app = e
 	s.logger = logger
+	s.validator = validator
 
 	if err := s.construct(); err != nil {
 		return s.shutdown, err
@@ -102,9 +104,9 @@ func (s *Service) construct() error {
 	// Instantiate and load v1 module: handlers, middleware, etc.
 	if err := v1.New(
 		s.logger,
-		s.tracer,
+		s.validator,
 		s.extended.test, // Purely to show passing configurations through to handlers.
-	).Add(s.echo); err != nil {
+	).Add(s.app); err != nil {
 		return err
 	}
 	s.logger.Info("webserver service module loaded",
@@ -124,6 +126,10 @@ func (s *Service) Description() string {
 
 func (s *Service) Name() string {
 	return s.name
+}
+
+func (s *Service) Validator() *validator.Validate {
+	return s.validator
 }
 
 func (s *Service) shutdown() {

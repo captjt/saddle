@@ -1,20 +1,16 @@
 package saddle
 
 import (
-	"context"
 	"fmt"
 	"strings"
 
 	"github.com/go-playground/validator/v10"
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
-	"go.opentelemetry.io/otel"
-	"go.opentelemetry.io/otel/sdk/trace"
 	"go.uber.org/zap"
 
 	"github.com/captjt/saddle/models"
 	log "github.com/captjt/saddle/pkg/logger"
-	"github.com/captjt/saddle/pkg/telemetry"
 )
 
 const (
@@ -110,8 +106,8 @@ func Instantiate[T Service](service T) (T, func(cmd *cobra.Command, args []strin
 	return service, func(cmd *cobra.Command, args []string) error {
 		env, address := viper.GetString(fmt.Sprintf("%s.%s", service.Name(), "environment")),
 			viper.GetString(fmt.Sprintf("%s.%s", service.Name(), "address"))
-		hc := config(service, env)
-
+		// Have to call config() here to ensure the environment is set before the logger is updated.
+		_ = config(service, env)
 		// display project logo w/ service name, environment and description
 		fmt.Printf("%s\n%s [%s]\n   ⤷ %s\n\n", logo, service.Name(), env,
 			service.Description())
@@ -119,73 +115,12 @@ func Instantiate[T Service](service T) (T, func(cmd *cobra.Command, args []strin
 		// update logger for proper env and service
 		logger.SetEnvironment(log.Environment(env), service.Name())
 
-		// - instantiate open-telemetry tracing exporter ↴
 		var (
 			err error
-			tp  *trace.TracerProvider
 		)
 
-		switch {
-		case hc.Saddle.CloudTrace != nil:
-			// TODO: Add project ID somehow in here for cloud trace settings.
-			tp, err = telemetry.NewExporter(telemetry.CloudTrace, service.Name(), env,
-				hc.Saddle.CloudTrace.SampleRate)
-			if err != nil {
-				logger.Fatal("unable to attach cloud trace telemetry exporter",
-					zap.String("service", service.Name()),
-					zap.String("environment", env),
-					zap.Float64("sample rate %", float64(hc.Saddle.CloudTrace.SampleRate)),
-					zap.Error(err),
-				)
-			}
-		case hc.Saddle.Jaeger != nil:
-			tp, err = telemetry.NewExporter(telemetry.Jaeger, service.Name(), env,
-				hc.Saddle.Jaeger.SampleRate, hc.Saddle.Jaeger.URI)
-			if err != nil {
-				logger.Fatal("unable to attach jaeger telemetry exporter",
-					zap.String("service", service.Name()),
-					zap.String("environment", env),
-					zap.String("jaeger uri", hc.Saddle.Jaeger.URI),
-					zap.Float64("sample rate %", float64(hc.Saddle.Jaeger.SampleRate)),
-					zap.Error(err),
-				)
-			}
-		case hc.Saddle.StdOut != nil:
-			tp, err = telemetry.NewExporter(telemetry.StdOut, service.Name(), env,
-				hc.Saddle.StdOut.SampleRate)
-			if err != nil {
-				logger.Fatal("unable to attach stdout telemetry exporter",
-					zap.String("service", service.Name()),
-					zap.String("environment", env),
-					zap.Float64("sample rate %", float64(hc.Saddle.StdOut.SampleRate)),
-					zap.Error(err),
-				)
-			}
-		default: // no exporter was specified in the service configuration; use stdout as default
-			const defaultSampleRate = 10 // defaulted to 10% of overall requests are sampled
-			tp, err = telemetry.NewExporter(telemetry.StdOut, service.Name(), env, defaultSampleRate)
-			if err != nil {
-				logger.Fatal("unable to attach stdout telemetry exporter (defaulted)",
-					zap.String("service", service.Name()),
-					zap.String("environment", env),
-					zap.Float64("sample rate %", defaultSampleRate),
-					zap.Error(err),
-				)
-			}
-		}
-		defer func() {
-			ctx := context.Background()
-
-			tp.ForceFlush(ctx) // flush any pending spans
-			if err := tp.Shutdown(ctx); err != nil {
-				logger.Error("unable to shutdown tracer provider",
-					zap.Error(err),
-				)
-			}
-		}()
-
 		// - instantiate new service ↴
-		s, err := new(service, logger, otel.Tracer(service.Name()))
+		s, err := new(service, logger, service.Validator())
 		if err != nil {
 			logger.Fatal("unable to attach service",
 				zap.String("service", service.Name()),
@@ -197,6 +132,6 @@ func Instantiate[T Service](service T) (T, func(cmd *cobra.Command, args []strin
 		logger.Info("listening for requests",
 			zap.String("address", address),
 		)
-		return s.Echo.Start(address)
+		return s.App.Listen(address)
 	}
 }

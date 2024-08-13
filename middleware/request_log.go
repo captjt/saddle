@@ -3,30 +3,47 @@ package middleware
 import (
 	"time"
 
-	"github.com/labstack/echo/v4"
+	"github.com/gofiber/fiber/v2"
+	"github.com/google/uuid"
 	"go.uber.org/zap"
 
 	log "github.com/captjt/saddle/pkg/logger"
 )
 
-func RequestLog(logger *log.Logger) echo.MiddlewareFunc {
-	return func(next echo.HandlerFunc) echo.HandlerFunc {
-		return func(c echo.Context) error {
-			startTime := time.Now()
-			logger.Info("request received",
-				zap.String("path", c.Path()),
-				zap.String("request_id", c.Get(CTXRequestID).(string)),
-			)
+// RequestLog creates a middleware that logs request start and end times, along with latency.
+func RequestLog(logger *log.Logger) fiber.Handler {
+	return func(c *fiber.Ctx) error {
+		startTime := time.Now()
 
-			err := next(c)
-			stopTime := time.Now()
-			latency := stopTime.Sub(startTime).Milliseconds()
-			logger.Info("request finished",
-				zap.String("path", c.Path()),
-				zap.String("request_id", c.Get(CTXRequestID).(string)),
-				zap.Int64("latency", latency),
-			)
-			return err
+		// You might need a way to generate or retrieve a request ID
+		requestID := c.Get("X-Request-ID") // Assuming Request ID is sent in headers
+		if requestID == "" {
+			requestID = generateRequestID() // Implement this function to generate a request ID if not provided
+			c.Set("X-Request-ID", requestID)
 		}
+
+		logger.Info("request received",
+			zap.String("path", c.Path()),
+			zap.String("method", c.Method()),
+			zap.String("request_id", requestID),
+		)
+
+		// Proceed with chain
+		err := c.Next()
+
+		latency := time.Since(startTime).Milliseconds()
+		logger.Info("request finished",
+			zap.String("path", c.Path()),
+			zap.String("method", c.Method()),
+			zap.String("request_id", requestID),
+			zap.Int64("latency", latency),
+		)
+
+		return err
 	}
+}
+
+// generateRequestID returns a new unique UUID string for each request.
+func generateRequestID() string {
+	return uuid.NewString()
 }

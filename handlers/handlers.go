@@ -5,16 +5,17 @@ import (
 	"regexp"
 	"time"
 
+	"github.com/go-playground/validator/v10"
+	"github.com/gofiber/fiber/v2"
 	"github.com/labstack/echo/v4"
-	"go.opentelemetry.io/otel/trace"
 
 	log "github.com/captjt/saddle/pkg/logger"
 )
 
 type (
 	handlers struct {
-		logger *log.Logger
-		tracer trace.Tracer
+		logger    *log.Logger
+		validator *validator.Validate
 
 		config *Config
 	}
@@ -40,15 +41,15 @@ func init() {
 	healthCheckRegex = regexp.MustCompile("^(kube-probe|GoogleHC/)")
 }
 
-func New(config *Config, logger *log.Logger, tracer trace.Tracer) *handlers {
+func New(config *Config, logger *log.Logger, validator *validator.Validate) *handlers {
 	return &handlers{
-		config: config,
-		logger: logger,
-		tracer: tracer,
+		config:    config,
+		logger:    logger,
+		validator: validator,
 	}
 }
 
-func (h *handlers) Route(e *echo.Echo, basePath string) {
+func (h *handlers) Route(e *fiber.App, basePath string) {
 	g := e.Group(basePath)
 
 	g.Add(http.MethodGet, healthEndpointURI, h.getHealth())
