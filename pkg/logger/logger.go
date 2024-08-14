@@ -16,7 +16,7 @@ type (
 const (
 	Development Environment = "dev"
 	Staging     Environment = "stg"
-	Production  Environment = "prd"
+	Production  Environment = "prod"
 	Local       Environment = "local"
 	Unknown     Environment = "unknown"
 )

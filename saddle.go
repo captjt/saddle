@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"strings"
 
+	"github.com/common-nighthawk/go-figure"
 	"github.com/go-playground/validator/v10"
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
@@ -16,18 +17,11 @@ import (
 const (
 	configFolder = ".config"
 
-	logo = `
-	________     __       ________   ________   ___       _______
-	/"       )   /""\     |"      "\ |"      "\ |"  |     /"     "|
-   (:   \___/   /    \    (.  ___  :)(.  ___  :)||  |    (: ______)
-	\___  \    /' /\  \   |: \   ) |||: \   ) |||:  |     \/    |
-	 __/  \\  //  __'  \  (| (___\ ||(| (___\ || \  |___  // ___)_
-	/" \   :)/   /  \\  \ |:       :)|:       :)( \_|:  \(:      "|
-   (_______/(___/    \___)(________/ (________/  \_______)\_______)
-`
+	logoText = "saddle"
 )
 
 var logger *log.Logger
+var logo = figure.NewFigure(logoText, "speed", true)
 
 func init() {
 	logger = log.New(log.Unknown, "saddle up! service initialization")
@@ -35,8 +29,8 @@ func init() {
 
 func New(version string) *cobra.Command {
 	return &cobra.Command{
-		Use:     "up",
-		Long:    logo,
+		Use:     "saddle",
+		Long:    "saddle up!",
 		Version: version,
 	}
 }
@@ -109,8 +103,8 @@ func Instantiate[T Service](service T) (T, func(cmd *cobra.Command, args []strin
 		// Have to call config() here to ensure the environment is set before the logger is updated.
 		_ = config(service, env)
 		// display project logo w/ service name, environment and description
-		fmt.Printf("%s\n%s [%s]\n   ⤷ %s\n\n", logo, service.Name(), env,
-			service.Description())
+		logo.Print()
+		fmt.Printf("\n%s [%s]\n   ⤷ %s\n\n", service.Name(), env, service.Description())
 
 		// update logger for proper env and service
 		logger.SetEnvironment(log.Environment(env), service.Name())

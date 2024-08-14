@@ -1,6 +1,7 @@
 package saddle
 
 import (
+	"fmt"
 	"os"
 	"os/signal"
 	"syscall"
@@ -67,7 +68,10 @@ func new[T Service](service T, logger *log.Logger, validator *validator.Validate
 ) {
 
 	s := &Project[T]{
-		App:       fiber.New(),
+		App: fiber.New(fiber.Config{
+			ServerHeader: "Saddle",
+			AppName:      fmt.Sprintf("%s-%s", service.Name(), version),
+		}),
 		service:   service,
 		validator: validator,
 	}
